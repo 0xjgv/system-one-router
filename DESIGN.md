@@ -1,6 +1,7 @@
 # Effort router: can a free classifier pick model and effort per task?
 
-Status: Phase 0 built, not yet run live. Phase 1 is a written spec only.
+Status: Phase 0 pilot run (39 free calls). It is stopped by its own rule: `p_not_observable`
+is pinned. Phase 1 is a written spec only.
 
 ## Question
 
@@ -142,7 +143,21 @@ the larger `verif` std + `under` std.
 
 Pilot items are excluded from gates 1 and 3.
 
-Frozen framing: (not yet chosen; `freeze` writes `frozen.json`, then add the line here)
+**Pilot result (2026-09-29), 39 live calls, all `span-01-free`:**
+
+- **F1 and F3 are invalid.** All 26 calls returned
+  `HTTP 422: {"detail":"bad span: span output must be an assistant message"}`. The API
+  requires the judged turn to be an assistant message.
+- **F2 scored 13/13.** Top-domain accuracy 0.85 (11/13). `verif` mean 0.523, std 0.234.
+  `under` mean 0.170, std 0.064. Every behaviour has `p_present` std above 0.05.
+- **F2 fails the winner rule.** `p_not_observable` mean 0.021, std 0.010, under the 0.02
+  floor. It is pinned, as in the lab's V1 runs.
+
+Under the rule as written, no framing is eligible and there is no main run. Gate 1 carries the
+same `p_not_observable` test, so F2 would also fail it. The decision on how to proceed is open
+(see below).
+
+Frozen framing: (none; the pilot produced no eligible framing)
 
 ### Main run (77 live calls at most; 127 with history)
 
