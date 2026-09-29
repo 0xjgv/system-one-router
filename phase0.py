@@ -401,7 +401,8 @@ def gates(rows: list[dict], hist: list[dict]) -> dict:
     g1 = {"verif_std": std([a["verif"] for a in ax]), "under_std": std([a["under"] for a in ax]),
           "p_not_observable_std": std(no_obs), "per_behavior_std": {
               b["id"]: std([r["probs"][b["id"]]["present"] for r in ok]) for b in BEHAVIORS}}
-    g1["pass"] = g1["verif_std"] > 0.05 and g1["under_std"] > 0.05 and g1["p_not_observable_std"] >= 0.02
+    # p_not_observable std is reported only: the router reads p_present (amendment, DESIGN.md).
+    g1["pass"] = g1["verif_std"] > 0.05 and g1["under_std"] > 0.05
     g3 = {"spearman_verif_under": spearman([a["verif"] for a in ax], [a["under"] for a in ax])}
     g3["pass"] = abs(g3["spearman_verif_under"]) < 0.7
 

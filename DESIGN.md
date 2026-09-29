@@ -1,7 +1,7 @@
 # Effort router: can a free classifier pick model and effort per task?
 
-Status: Phase 0 pilot run (39 free calls). It is stopped by its own rule: `p_not_observable`
-is pinned. Phase 1 is a written spec only.
+Status: Phase 0 pilot done (39 free calls), F2 frozen after an amendment, main run next.
+Phase 1 is a written spec only.
 
 ## Question
 
@@ -154,10 +154,14 @@ Pilot items are excluded from gates 1 and 3.
   floor. It is pinned, as in the lab's V1 runs.
 
 Under the rule as written, no framing is eligible and there is no main run. Gate 1 carries the
-same `p_not_observable` test, so F2 would also fail it. The decision on how to proceed is open
-(see below).
+same `p_not_observable` test, so F2 would also fail it.
 
-Frozen framing: (none; the pilot produced no eligible framing)
+**Amendment (2026-09-29, Juan's decision, after the pilot and before the main run).** The
+`p_not_observable` floor is removed from the winner rule and from gate 1. It stays in the
+report. Reason: the router reads `p_present` only and never uses the abstention channel, and
+the lab already showed that channel is flat on this model. F2 is then the only valid framing.
+
+Frozen framing: F2. It is the only framing the API accepts; top-domain accuracy 11/13.
 
 ### Main run (77 live calls at most; 127 with history)
 
@@ -178,9 +182,9 @@ The lab ran 1,850 calls in one day with 0 errors and never hit the cap.
 
 ### Kill gate: Phase 1 only if all three pass
 
-1. **Non-degenerate.** On non-pilot main items: `verif` std > 0.05, `under` std > 0.05, and
-   `p_not_observable` std ≥ 0.02 over all item × behaviour values. Per-behaviour std is
-   reported.
+1. **Non-degenerate.** On non-pilot main items: `verif` std > 0.05 and `under` std > 0.05.
+   Per-behaviour std and `p_not_observable` std are reported. (The original plan also required
+   `p_not_observable` std ≥ 0.02; that was dropped by the amendment above.)
 2. **Beats lexical.** On scored history items: Spearman(`span_cost`, revealed cost) exceeds
    the better lexical Spearman by at least 0.05, with a bootstrap 90% interval of the
    difference (1,000 resamples). If correction ever has ≥ 5 positives and ≥ 5 negatives,
