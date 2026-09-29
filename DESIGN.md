@@ -1,8 +1,6 @@
 # Effort router: can a free classifier pick model and effort per task?
 
-Status: Phase 0 main run on TB3 done (103 free calls in all). Gates 1 and 3 pass; gate 2
-waits on the history approval.
-Phase 1 is a written spec only.
+Status: Phase 0 complete, 152 free calls. Verdict: NO-GO (gate 2 fails). Phase 1 stays a spec.
 
 ## Question
 
@@ -198,6 +196,36 @@ Reading, marked as inference:
   specs. History prompts should vary more.
 
 Verdict: NO VERDICT until the history sample is approved and scored.
+
+**Main result with history (2026-09-29): NO-GO.** Juan approved the sample after `hist/03`
+(names a customer) was dropped, so 49 prompts were scored. That took 49 live calls plus 3
+canary, with 0 errors and canary drift 0.003. The day's total is 152 calls, all `span-01-free`.
+
+| Check | Value | Result |
+|---|---|---|
+| Gate 1: `verif` std / `under` std (non-pilot TB3 + history) | 0.248 / 0.210 | pass |
+| Gate 2: Spearman with revealed cost, `span_cost` vs best lexical (`lex_zsum`) | 0.200 vs 0.297; 90% CI of difference [−0.38, +0.21] | **fail** |
+| Gate 2: correction | 1 positive | underpowered, not gated |
+| Gate 3: Spearman(`verif`, `under`) | −0.53 | pass |
+
+Post-hoc, exploratory only (not declared before the data; do not treat as evidence):
+
+| Score | Spearman with revealed cost | Spearman with tool calls |
+|---|---|---|
+| `verif` alone | 0.308 | 0.395 |
+| `span_cost` | 0.200 | −0.028 |
+| `lex_len` | 0.261 | 0.060 |
+
+`verif` alone edges the lexical baseline on cost by 0.01, far inside the noise, and
+correlates with tool calls where length does not. That is a hypothesis for a fresh sample,
+not a rescue of this one: picking `verif` after seeing these numbers is selection on the test
+set.
+
+**Verdict: NO-GO for Phase 1 as designed.** The Span scores are varied and form two distinct
+axes, but the declared cost score does not beat a length-and-keyword baseline on the only
+label available. With 49 items the interval is wide, so this is a failure to show a gain, not
+proof that none exists. Any retry needs a fresh history sample, with `verif` declared before
+any score is seen, and more transcripts than the 161-prompt pool.
 
 ### Baselines
 
