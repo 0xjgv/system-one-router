@@ -1,6 +1,7 @@
 # Effort router: can a free classifier pick model and effort per task?
 
-Status: Phase 0 pilot done (39 free calls), F2 frozen after an amendment, main run next.
+Status: Phase 0 main run on TB3 done (103 free calls in all). Gates 1 and 3 pass; gate 2
+waits on the history approval.
 Phase 1 is a written spec only.
 
 ## Question
@@ -171,6 +172,32 @@ short by the daily cap still spans the data. Three canary items are then rescore
 cache; a `p_present` shift above 0.05 means the served model changed during the run.
 `span-01-free` changed once already, between 2026-09-26 and 2026-09-28 (lab `drift/RESULTS.md`).
 The lab ran 1,850 calls in one day with 0 errors and never hit the cap.
+
+**Main result, TB3 only (2026-09-29).** 61 live calls (13 pilot items from the cache), 0
+errors, canary drift 0.0. History is not yet approved.
+
+| Check | Value | Result |
+|---|---|---|
+| Gate 1: `verif` std / `under` std (61 non-pilot items) | 0.194 / 0.075 | pass |
+| Gate 1, reported: `p_not_observable` std | 0.013 | still pinned |
+| Gate 1, reported: behaviours with std ≤ 0.05 | `ambiguous_goal` 0.044, `trivial_edit` 0.037, `exploratory_or_brainstorm` 0.026 | flat on TB3 |
+| Gate 2 | no history items | **no verdict** |
+| Gate 3: Spearman(`verif`, `under`) | 0.41 | pass |
+| TB3 domain AUC: Security / Hardware / ML / Science | 1.00 / 0.98 / 0.98 / 0.98 | strong |
+| TB3 domain AUC: Operations | 0.58 | weak |
+| TB3 Spearman with expert hours: `span_cost` vs `lex_len` | 0.09 vs 0.22 | **span loses to length** |
+
+Reading, marked as inference:
+
+- TB3 "Operations" tasks include business operations (`medical-claims-processing`,
+  `intrastat-meldung`), while `domain_ops` defines devops. The low AUC is probably a
+  definition mismatch, not a model failure.
+- The expert-hours result is the first check against a cost-like label, and length beats
+  Span on it. It is not a gate, but it predicts trouble for gate 2.
+- The flat underspecification and scope behaviours fit TB3: its tasks are written as complete
+  specs. History prompts should vary more.
+
+Verdict: NO VERDICT until the history sample is approved and scored.
 
 ### Baselines
 
