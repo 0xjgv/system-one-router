@@ -1,18 +1,21 @@
 # system-one-router
 
-Choose a Claude Code subagent's model and effort with a small decision model.
-A `PreToolUse` hook scores the task prompt and updates the Agent call before it runs.
+Choose a model and effort for Claude Code subagents or whole Codex tasks with a
+small decision model. A Claude `PreToolUse` hook updates Agent calls; the Codex
+launcher selects a model and effort before starting `codex exec`.
 Supports Respan Lite, Respan Pro, direct TypeSafe Jev, and OpenRouter System One models.
 
-Python 3.9+ and the standard library are sufficient. The shell integration also
-requires [Claude Code](https://code.claude.com/docs/en/overview) and access to the
-configured execution models (`fable`, `opus`, and `sonnet`).
+Python 3.9+ and the standard library are sufficient. To execute tasks, install
+[Claude Code](https://code.claude.com/docs/en/overview) or
+[Codex CLI](https://developers.openai.com/codex/cli) and sign in with an account
+that has access to the configured execution models.
 
 ## Setup
 
 ```sh
 git clone https://github.com/0xjgv/system-one-router.git
 cd system-one-router
+export EFFORT_ROUTER_DIR="$(pwd)"
 ```
 
 Set credentials in your environment or create a `.env` file in the repository:
@@ -74,20 +77,33 @@ the chat-completions API. See [Respan's models](https://www.respan.ai/docs/docum
 
 ## How routing works
 
-1. Score seven definitions from `route.py`: three execution models (`fable`, `opus`,
-   `sonnet`) and four efforts (`xhigh`, `high`, `medium`, `low`). Respan returns
+The execution target is independent of the scoring provider:
+
+| Target | Execution models | Fallback model/effort |
+|---|---|---|
+| `claude` (default) | `fable`, `opus`, `sonnet` | `sonnet` / `xhigh` |
+| `codex` | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna` | `gpt-6.1-sol` / `xhigh` |
+
+Model definitions and target fallbacks live in `route.py` (`TARGETS`). The Codex
+definitions assign ambiguous tradeoffs to Astra, complex engineering to Sol, and
+focused tasks to Luna. These are initial routing rules, not validated rankings.
+Both targets use `low`, `medium`, `high`, and `xhigh`; the listed Codex models
+support all four. Account access may differ.
+
+1. Score seven definitions from `route.py`: three execution models for the chosen
+   target and four efforts (`xhigh`, `high`, `medium`, `low`). Respan returns
    `p_present`; TypeSafe and OpenRouter return one `noul` probability per definition.
 2. Take the highest score in each group. A winner below `FLOOR` (`0.3`) uses that
-   group's default: `sonnet` or `xhigh`. Low scores do not trigger a provider retry.
+   group's target-specific default. Low scores do not trigger a provider retry.
 3. Missing credentials, request errors, or malformed scores trigger direct Jev
-   fallback. If both attempts fail, use `sonnet`/`xhigh`. Selecting the same direct
+   fallback. If both attempts fail, use the target's fallback pair. Selecting the same direct
    Jev model as the fallback makes only one attempt.
 
 Requests use a 10-second socket timeout per attempt with no retries within a
 provider. The shell example gives the whole hook 30 seconds. Invalid configuration
 also produces the static default; use `check` to catch it before starting a session.
 
-Generic agents (`general-purpose`, `claude`, or no type) become
+For the Claude hook, generic agents (`general-purpose`, `claude`, or no type) become
 `routed-<model>-<effort>` agents, whose definitions carry the effort. Specialized
 agents retain their type and instructions and receive only the selected model.
 Non-Agent calls and empty prompts pass through. Provider and log-write failures
@@ -97,13 +113,7 @@ The scoring model chooses the execution model; these are separate settings.
 The shared probability format does not establish equal calibration across providers.
 Treat routing quality and the current threshold as experimental.
 
-## Try it with a shell function
-
-From the cloned repository, set its absolute path:
-
-```sh
-export EFFORT_ROUTER_DIR="$(pwd)"
-```
+## Try Claude Code with a shell function
 
 Paste this function into a POSIX-compatible shell, Bash, or Zsh, or add it to your
 shell configuration. It uses the exported path so hooks work from other projects.
@@ -139,6 +149,56 @@ The function preserves normal Claude Code permission checks. See the
 [subagent](https://code.claude.com/docs/en/sub-agents) and
 [hook](https://code.claude.com/docs/en/hooks) documentation for integration details.
 
+## Try Codex
+
+Select a Codex model and effort without launching it:
+
+```sh
+python3 route.py --target codex --json "Explain what a Python list is"
+# Example: {"model": "gpt-6-luna", "effort": "low"}
+```
+
+`--json` emits only the model/effort object, including when scoring fails and the
+target's fallback is used. It also works with `--target claude`. The `agents`
+command generates Claude definitions only.
+
+Launch one routed Codex task:
+
+```sh
+python3 codex_run.py "Summarize this project's README. Do not modify files." \
+  --sandbox read-only
+```
+
+The prompt is the first argument; remaining arguments are passed to `codex exec`.
+The launcher supplies `--model` and `-c model_reasoning_effort=...`; omit competing
+model or effort overrides. It forwards Codex's output and exit status, prints the
+routing decision to stderr, and preserves Codex's normal permission handling.
+
+With `EFFORT_ROUTER_DIR` exported by the setup command, add this shell function:
+
+```sh
+codex_routed() {
+  : "${EFFORT_ROUTER_DIR:?Set EFFORT_ROUTER_DIR to the cloned repository}"
+  python3 "$EFFORT_ROUTER_DIR/codex_run.py" "$@"
+}
+```
+
+Run from the project you want to work on:
+
+```sh
+codex_routed "Summarize this project's README. Do not modify files." --sandbox read-only
+
+# Change the scoring provider while still executing with Codex
+ROUTER_PROVIDER=respan ROUTER_MODEL=span-01-pro \
+  codex_routed "Explain this project's test structure." --sandbox read-only
+```
+
+This routes the initial task, not individual Codex subagents or later turns. The
+Claude `agent_hook.py` is not a Codex hook. Native Codex subagent routing requires
+separate validation of spawn arguments, fork behavior, and model overrides. See
+[Codex configuration](https://learn.chatgpt.com/docs/config-file/config-reference)
+for model and effort settings.
+
 ## Tests and logs
 
 ```sh
@@ -156,7 +216,7 @@ printf '%s\n' '{"tool_name":"Agent","tool_input":{"prompt":"Explain what a Pytho
 tail -n 1 "$EFFORT_ROUTER_DIR/artifacts/beta_log.jsonl"
 ```
 
-Each routing record includes the prompt, working directory, selected model/effort,
+Each routing record includes the prompt, working directory, execution target, selected model/effort,
 scores, and provider attempts with timing and error categories. Successful scoring
 also records `scoring_provider` and `scoring_model`. Logs stay in the repository's
 ignored `artifacts/beta_log.jsonl`; logging failure does not discard a decision.
@@ -171,4 +231,5 @@ credentials and logs out of commits and use synthetic prompts for integration te
 | `model_provider.py` | Provider configuration, credentials, API adapters, and fallback |
 | `route.py` | Behavior definitions, model/effort selection, agent definitions, and logs |
 | `agent_hook.py` | Claude Code `PreToolUse` JSON interface |
-| `test_model_provider.py`, `test_route.py` | Offline provider, routing, and hook regression tests |
+| `codex_run.py` | Launch a whole Codex task with the selected model and effort |
+| `test_model_provider.py`, `test_route.py`, `test_codex.py` | Offline provider, routing, hook, and launcher regression tests |
