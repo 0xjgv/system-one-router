@@ -1,9 +1,9 @@
-"""Beta router: Span-01 Lite picks the model and effort for each subagent a beta() session spawns.
+"""Use a System One scorer to pick the model and effort for each subagent.
 
     python3 route.py "<prompt>"   print the pick for one prompt and log it
     python3 route.py agents       --agents JSON with one routed-<model>-<effort> agent per pair
 
-One Span call scores all seven options; each group takes the option with the highest p_present.
+One scoring call evaluates all seven options; each group takes the highest probability.
 Any failure, or a winner under FLOOR, takes FALLBACK. Standard library only; runs on Python 3.9.
 """
 
@@ -13,14 +13,13 @@ import json
 import os
 import sys
 import time
-import urllib.request
 from pathlib import Path
+
+import model_provider
 
 ROOT = Path(__file__).resolve().parent
 LOG = ROOT / "artifacts" / "beta_log.jsonl"
-URL = "https://api.respan.ai/api/v1/scores"
-TIMEOUT_S = 10  # the beta() hook timeout is 30 s
-FALLBACK = ("sonnet", "xhigh")  # matches omega's delegates
+FALLBACK = ("sonnet", "xhigh")
 FLOOR = 0.3  # a winning p_present under this means no option fit
 MODELS = {  # Fable is wise, Opus smart, Sonnet focused.
     "fable": "The task request calls for wisdom: weighing trade-offs, choosing between several defensible approaches, or working out what is really being asked before acting.",
@@ -39,37 +38,13 @@ GENERIC_AGENT = ("You are a general-purpose agent. Do the task in the prompt ful
                  "what it needs. Finish with a short report of what you did and found, with file paths.")
 
 
-def api_key() -> str:
-    """RESPAN_API_KEY from the environment, else from .env next to this file."""
-    key = os.environ.get("RESPAN_API_KEY", "").strip()
-    env = ROOT / ".env"
-    if not key and env.exists():
-        for line in env.read_text().splitlines():
-            name, _, value = line.partition("=")
-            if name.strip() == "RESPAN_API_KEY":
-                key = value.strip().strip("'\"")
-    if not key:
-        raise RuntimeError("RESPAN_API_KEY not set (environment or .env)")
-    return key
-
-
-def scores(text: str) -> dict[str, float]:
-    """p_present per behavior id. The prompt is framed as a user turn the agent has just accepted."""
-    body = {"model": "span-01-free", "behaviors": BEHAVIORS,
-            "span": {"input": [{"role": "user", "content": text}],
-                     "output": {"role": "assistant", "content": "Understood. I will start on this task."}}}
-    req = urllib.request.Request(URL, data=json.dumps(body).encode(), method="POST", headers={
-        "Authorization": f"Bearer {api_key()}", "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=TIMEOUT_S) as resp:
-        return {r["id"]: r["p_present"] for r in json.loads(resp.read())["results"]}
-
-
 def route(text: str, cwd: str, kind: str) -> tuple[str, str, dict]:
     """Pick and log one prompt. Any failure takes FALLBACK with entry["error"] set."""
     entry: dict = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "kind": kind, "cwd": cwd, "text": text}
     model, effort = FALLBACK
     try:
-        p = scores(text)
+        p, metadata = model_provider.scores(text, BEHAVIORS)
+        entry.update(metadata)
         best_model = max(MODELS, key=lambda m: p[f"model_{m}"])
         best_effort = max(EFFORTS, key=lambda e: p[f"effort_{e}"])
         floored = [g for g, top in (("model", p[f"model_{best_model}"]), ("effort", p[f"effort_{best_effort}"]))
@@ -78,11 +53,16 @@ def route(text: str, cwd: str, kind: str) -> tuple[str, str, dict]:
         effort = effort if "effort" in floored else best_effort
         entry.update(p_present=p, floored=floored)
     except Exception as err:  # network, HTTP, key, or response shape: never block the spawn
-        entry["error"] = f"{type(err).__name__}: {err}"[:300]
+        entry["error"] = type(err).__name__
+        if isinstance(err, model_provider.ScoreError):
+            entry["attempts"] = err.attempts
     entry.update(model=model, effort=effort)
-    LOG.parent.mkdir(exist_ok=True)
-    with LOG.open("a") as f:
-        f.write(json.dumps(entry) + "\n")
+    try:
+        LOG.parent.mkdir(exist_ok=True)
+        with LOG.open("a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except OSError:
+        entry["log_error"] = True
     return model, effort, entry
 
 
@@ -99,7 +79,7 @@ def main(argv: list[str]) -> int:
         return 0
     if len(argv) == 1 and argv[0].strip():
         model, effort, entry = route(argv[0], os.getcwd(), "manual")
-        note = "Span failed" if "error" in entry else ",".join(entry["floored"])
+        note = "Scoring failed" if "error" in entry else ",".join(entry["floored"])
         print(f"{model} {effort}" + (f"  ({note})" if note else ""))
         return 0
     sys.exit(__doc__)
