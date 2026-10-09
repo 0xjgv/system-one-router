@@ -136,11 +136,11 @@ class ProviderTests(unittest.TestCase):
 
     def test_http_failure_attempts_do_not_disclose_response_or_credentials(self):
         error = urllib.error.HTTPError("https://example.invalid", 401, "sensitive response text", {}, None)
-        with patch("model_provider.urllib.request.urlopen", side_effect=[error, ValueError("sensitive response text")]):
+        with patch("model_provider.urllib.request.urlopen", side_effect=[error, ValueError("sensitive response text"), OSError("sensitive response text")]):
             with self.assertRaises(model_provider.ScoreError) as caught:
                 model_provider.scores("Synthetic task", BEHAVIORS)
         attempts = caught.exception.attempts
-        self.assertEqual([attempt["provider"] for attempt in attempts], ["respan", "typesafe"])
+        self.assertEqual([attempt["provider"] for attempt in attempts], ["respan", "typesafe", "openrouter"])
         for attempt in attempts:
             self.assertIn("error", attempt)
             self.assertGreaterEqual(attempt["elapsed_ms"], 0)
@@ -150,12 +150,27 @@ class ProviderTests(unittest.TestCase):
         self.assertNotIn("synthetic-", diagnostic)
 
     def test_duplicate_fallback_is_attempted_once(self):
-        os.environ["ROUTER_PROVIDER"] = "typesafe"
-        with patch("model_provider.urllib.request.urlopen", side_effect=OSError("offline")) as send:
-            with self.assertRaises(model_provider.ScoreError) as caught:
-                model_provider.scores("Synthetic task", BEHAVIORS)
-        self.assertEqual(send.call_count, 1)
-        self.assertEqual(len(caught.exception.attempts), 1)
+        for provider, expected in (("typesafe", ["typesafe", "openrouter"]),
+                                   ("openrouter", ["openrouter", "typesafe"])):
+            with self.subTest(provider=provider):
+                os.environ["ROUTER_PROVIDER"] = provider
+                with patch("model_provider.urllib.request.urlopen", side_effect=OSError("offline")) as send:
+                    with self.assertRaises(model_provider.ScoreError) as caught:
+                        model_provider.scores("Synthetic task", BEHAVIORS)
+                self.assertEqual(send.call_count, 2)
+                self.assertEqual([attempt["provider"] for attempt in caught.exception.attempts], expected)
+
+    def test_openrouter_recovers_after_both_providers_fail(self):
+        with patch("model_provider.urllib.request.urlopen", side_effect=[
+                TimeoutError(), OSError("offline"), response(typesafe_body())]) as send:
+            probabilities, metadata = model_provider.scores("Synthetic task", BEHAVIORS)
+        self.assertEqual([call.args[0].full_url for call in send.call_args_list],
+                         [model_provider.PROVIDERS[p][0] for p in ("respan", "typesafe", "openrouter")])
+        self.assertEqual(probabilities, {"one": 0.8, "two": 0.2})
+        self.assertEqual(metadata["scoring_provider"], "openrouter")
+        self.assertEqual(metadata["scoring_model"], "typesafe/jev-1.13")
+        self.assertEqual([a.get("error") for a in metadata["attempts"]],
+                         ["TimeoutError", "OSError", None])
 
     def test_env_settings_override_dotenv_without_evaluation(self):
         sentinel = self.root / "sentinel"
@@ -177,8 +192,8 @@ class ProviderTests(unittest.TestCase):
             model_provider.configuration()
 
     def test_check_requires_primary_and_fallback_keys_without_network(self):
-        os.environ["ROUTER_PROVIDER"] = "openrouter"
-        for missing, expected in ((None, 0), ("OPENROUTER_API_KEY", 1), ("TYPESAFE_API_KEY", 1)):
+        for missing, expected in ((None, 0), ("RESPAN_API_KEY", 1),
+                                  ("OPENROUTER_API_KEY", 1), ("TYPESAFE_API_KEY", 1)):
             with self.subTest(missing=missing), patch.dict(os.environ, self.environment):
                 if missing:
                     del os.environ[missing]

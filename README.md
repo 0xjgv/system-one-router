@@ -23,8 +23,7 @@ Set credentials in your environment or create a `.env` file in the repository:
 ```dotenv
 RESPAN_API_KEY=your-respan-key
 TYPESAFE_API_KEY=your-typesafe-key
-# Required only when selecting OpenRouter:
-# OPENROUTER_API_KEY=your-openrouter-key
+OPENROUTER_API_KEY=your-openrouter-key
 ```
 
 Environment values take precedence. The `.env` reader accepts `NAME=value` lines
@@ -35,10 +34,10 @@ Git ignores it.
 python3 model_provider.py check
 ```
 
-This checks that keys are present for the primary provider and direct Jev fallback.
+This checks that keys are present for the primary provider and both Jev fallbacks.
 It prints key names, never values, and exits nonzero if a required key is missing.
-It does not contact providers or validate credentials. A direct TypeSafe setup needs
-only `TYPESAFE_API_KEY`.
+It does not contact providers or validate credentials. A direct TypeSafe setup also
+needs `OPENROUTER_API_KEY` for fallback.
 
 ## Choose a scoring provider
 
@@ -53,7 +52,8 @@ Set `ROUTER_PROVIDER` and `ROUTER_MODEL` in the environment or `.env`:
 
 Omitting `ROUTER_MODEL` selects the provider's default from `model_provider.py`.
 Set both variables when switching providers if a model is already configured.
-The `PRIMARY` and `FALLBACK` constants in that file define the default provider chain.
+The `PRIMARY` and `FALLBACKS` constants in that file define the default provider chain:
+Respan → direct TypeSafe Jev → OpenRouter Jev.
 
 ```sh
 # Respan Pro
@@ -95,12 +95,13 @@ support all four. Account access may differ.
    `p_present`; TypeSafe and OpenRouter return one `noul` probability per definition.
 2. Take the highest score in each group. A winner below `FLOOR` (`0.3`) uses that
    group's target-specific default. Low scores do not trigger a provider retry.
-3. Missing credentials, request errors, or malformed scores trigger direct Jev
-   fallback. If both attempts fail, use the target's fallback pair. Selecting the same direct
-   Jev model as the fallback makes only one attempt.
+3. Missing credentials, request errors, or malformed scores trigger direct TypeSafe
+   Jev, then OpenRouter Jev. If all attempts fail, use the target's fallback pair.
+   Duplicate provider/model pairs are attempted only once, including when a fallback
+   is selected as the primary.
 
-Requests use a 10-second socket timeout per attempt with no retries within a
-provider. The shell example gives the whole hook 30 seconds. Invalid configuration
+Requests use an 8-second socket timeout per attempt with no retries for the same
+provider/model pair. The shell example gives the whole hook 30 seconds. Invalid configuration
 also produces the static default; use `check` to catch it before starting a session.
 
 For the Claude hook, generic agents (`general-purpose`, `claude`, or no type) become

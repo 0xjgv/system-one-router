@@ -128,7 +128,7 @@ class HookTests(unittest.TestCase):
                 **call, "model": "sonnet", "subagent_type": "routed-sonnet-xhigh"})
             entry = json.loads((root / "artifacts" / "beta_log.jsonl").read_text())
         self.assertIn("ScoreError", entry["error"])
-        self.assertEqual([attempt["provider"] for attempt in entry["attempts"]], ["respan", "typesafe"])
+        self.assertEqual([attempt["provider"] for attempt in entry["attempts"]], ["respan", "typesafe", "openrouter"])
         self.assertTrue(all(attempt["error"] == "ValueError" for attempt in entry["attempts"]))
 
 

@@ -13,8 +13,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 PRIMARY = ("respan", "span-01-free")
-FALLBACK = ("typesafe", "jev-1.13.0")
-TIMEOUT_S = 10  # Two attempts fit within the example hook's 30-second timeout under normal I/O.
+FALLBACKS = (("typesafe", "jev-1.13.0"), ("openrouter", "typesafe/jev-1.13"))
+TIMEOUT_S = 8  # Three attempts leave room within the example hook's 30-second timeout under normal I/O.
 PROVIDERS = {
     "respan": ("https://api.respan.ai/api/v1/scores", "RESPAN_API_KEY"),
     "typesafe": ("https://api.typesafe.ai/v1/systemone", "TYPESAFE_API_KEY"),
@@ -47,6 +47,10 @@ def configuration() -> tuple[str, str]:
         raise ValueError("ROUTER_PROVIDER must be respan, typesafe, or openrouter")
     model = PRIMARY[1] if provider == PRIMARY[0] else DEFAULT_MODELS[provider]
     return provider, setting("ROUTER_MODEL", model)
+
+
+def provider_chain() -> list[tuple[str, str]]:
+    return list(dict.fromkeys((configuration(), *FALLBACKS)))
 
 
 class ScoreError(RuntimeError):
@@ -91,11 +95,9 @@ def _score(provider: str, model: str, text: str, behaviors: list[dict]) -> dict[
 
 
 def scores(text: str, behaviors: list[dict]) -> tuple[dict[str, float], dict]:
-    """Try the primary, then direct Jev; low scores are valid and do not trigger another call."""
-    primary = configuration()
-    chain = [primary] if primary == FALLBACK else [primary, FALLBACK]
+    """Try the primary, then Jev directly and via OpenRouter; low scores do not trigger retries."""
     attempts = []
-    for provider, model in chain:
+    for provider, model in provider_chain():
         attempt = {"provider": provider, "model": model}
         started = time.monotonic()
         try:
@@ -116,9 +118,8 @@ def main(argv: list[str]) -> int:
         print("Usage: python3 model_provider.py check", file=sys.stderr)
         return 1
     try:
-        primary = configuration()
         missing = False
-        for provider, model in dict.fromkeys((primary, FALLBACK)):
+        for provider, model in provider_chain():
             key_name = PROVIDERS[provider][1]
             present = bool(setting(key_name))
             missing |= not present
