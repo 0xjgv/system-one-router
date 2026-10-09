@@ -4,7 +4,7 @@
     python3 route.py --target codex --json "<prompt>"   print a Codex model/effort pair
     python3 route.py agents       --agents JSON with one routed-<model>-<effort> agent per pair
 
-One scoring call evaluates all seven options; each group takes the highest probability.
+One scoring call evaluates every model and effort option; each group takes the highest probability.
 Scoring failures and winners under FLOOR use the target's fallback. Standard library only; Python 3.9.
 """
 
@@ -23,10 +23,11 @@ ROOT = Path(__file__).resolve().parent
 LOG = ROOT / "artifacts" / "beta_log.jsonl"
 FALLBACK = ("sonnet", "xhigh")
 FLOOR = 0.3  # a winning p_present under this means no option fit
-MODELS = {  # Fable is wise, Opus smart, Sonnet focused.
+MODELS = {  # Fable is wise, Opus smart, Sonnet focused, Haiku quick.
     "fable": "The task request calls for wisdom: weighing trade-offs, choosing between several defensible approaches, or working out what is really being asked before acting.",
     "opus": "The task request calls for strong technical skill: hard engineering across several parts of a system, subtle debugging, or careful verification of correctness.",
     "sonnet": "The task request is a focused, well-defined job: one clear goal, a bounded scope, and an obvious way to tell when it is done.",
+    "haiku": "The task request is trivial or mechanical: a tiny edit, a narrow lookup, or a short direct answer that needs little context and no design judgment.",
 }
 TARGETS = {
     "claude": {"models": MODELS, "fallback": FALLBACK},

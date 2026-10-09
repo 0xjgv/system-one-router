@@ -81,7 +81,7 @@ The execution target is independent of the scoring provider:
 
 | Target | Execution models | Fallback model/effort |
 |---|---|---|
-| `claude` (default) | `fable`, `opus`, `sonnet` | `sonnet` / `xhigh` |
+| `claude` (default) | `fable`, `opus`, `sonnet`, `haiku` | `sonnet` / `xhigh` |
 | `codex` | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna` | `gpt-6.1-sol` / `xhigh` |
 
 Model definitions and target fallbacks live in `route.py` (`TARGETS`). The Codex
@@ -90,9 +90,10 @@ focused tasks to Luna. These are initial routing rules, not validated rankings.
 Both targets use `low`, `medium`, `high`, and `xhigh`; the listed Codex models
 support all four. Account access may differ.
 
-1. Score seven definitions from `route.py`: three execution models for the chosen
-   target and four efforts (`xhigh`, `high`, `medium`, `low`). Respan returns
-   `p_present`; TypeSafe and OpenRouter return one `noul` probability per definition.
+1. Score the definitions in `route.py`: every execution model for the chosen
+   target and four efforts (`xhigh`, `high`, `medium`, `low`). Claude scores eight
+   definitions; Codex scores seven. Respan returns `p_present`; TypeSafe and
+   OpenRouter return one `noul` probability per definition.
 2. Take the highest score in each group. A winner below `FLOOR` (`0.3`) uses that
    group's target-specific default. Low scores do not trigger a provider retry.
 3. Missing credentials, request errors, or malformed scores trigger direct TypeSafe
@@ -204,7 +205,7 @@ for model and effort settings.
 
 ```sh
 python3 -m unittest discover -v                 # Offline tests; no API keys needed
-python3 route.py agents                        # Print all 12 agent definitions
+python3 route.py agents                        # Print all 16 agent definitions
 printf '%s\n' '{"tool_name":"Read","tool_input":{}}' | python3 agent_hook.py
 ```
 

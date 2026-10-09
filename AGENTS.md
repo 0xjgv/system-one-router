@@ -15,7 +15,7 @@ There are no package, asset, or test directories. Keep changes within the existi
 
 No build step or dependency installation is required.
 
-- `python3 route.py agents`: print the 12 `routed-<model>-<effort>` definitions without calling Respan.
+- `python3 route.py agents`: print the 16 `routed-<model>-<effort>` definitions without calling Respan.
 - `python3 route.py "Fix the flaky login test"`: score a prompt, print the selection, and append a log record. This sends the prompt to Respan when configured.
 - `printf '%s\n' '{"tool_name":"Read","tool_input":{}}' | python3 agent_hook.py`: check pass-through behavior; expect successful exit with no output.
 - `python3 -m py_compile route.py agent_hook.py`: check syntax.

@@ -31,6 +31,13 @@ class RouteTests(unittest.TestCase):
         log.start()
         self.addCleanup(log.stop)
 
+    def test_haiku_is_selected_when_it_scores_highest(self):
+        with patch("route.model_provider.scores", return_value=(scores("haiku", "low"), {})):
+            model, effort, entry = route.route("Synthetic task", "", "manual")
+        self.assertEqual((model, effort), ("haiku", "low"))
+        self.assertEqual(entry["floored"], [])
+        self.assertIn("routed-haiku-low", route.agents())
+
     def test_selection_and_provider_metadata_are_logged(self):
         metadata = {"scoring_provider": "openrouter", "scoring_model": "typesafe/jev-1.13",
                     "attempts": [{"provider": "openrouter", "model": "typesafe/jev-1.13", "elapsed_ms": 1}]}

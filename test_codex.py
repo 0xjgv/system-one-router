@@ -96,7 +96,7 @@ class CodexRouteTests(unittest.TestCase):
         with patch("route.model_provider.scores") as score, contextlib.redirect_stdout(output):
             self.assertEqual(route.main(["agents"]), 0)
         self.assertEqual(json.loads(output.getvalue()), route.agents())
-        self.assertEqual(len(json.loads(output.getvalue())), 12)
+        self.assertEqual(len(json.loads(output.getvalue())), 16)
         score.assert_not_called()
 
     def test_codex_agents_command_reports_an_error_without_scoring(self):
