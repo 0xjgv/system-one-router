@@ -34,7 +34,7 @@ TARGETS = {
         "models": {
             "gpt-6-astra": MODELS["fable"],
             "gpt-6.1-sol": MODELS["opus"],
-            "gpt-6-luna": MODELS["sonnet"],
+            "gpt-6-luna": "The task request is trivial or standard engineering with a known approach: the steps follow from the request, and a competent engineer would finish it correctly on the first attempt.",
         },
         "fallback": ("gpt-6.1-sol", "xhigh"),
     },
