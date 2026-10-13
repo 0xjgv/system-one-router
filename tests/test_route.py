@@ -36,7 +36,6 @@ class RouteTests(unittest.TestCase):
             model, effort, entry = route.route("Synthetic task", "", "manual")
         self.assertEqual((model, effort), ("haiku", "low"))
         self.assertEqual(entry["floored"], [])
-        self.assertIn("routed-haiku-low", route.agents())
 
     def test_selection_and_provider_metadata_are_logged(self):
         metadata = {"scoring_provider": "openrouter", "scoring_model": "typesafe/jev-1.13",
@@ -88,22 +87,22 @@ class HookTests(unittest.TestCase):
         self.assertEqual(status, 0)
         return output.getvalue()
 
-    def test_generic_agents_receive_model_and_routed_effort_type(self):
-        for agent_type in (None, "", "general-purpose", "claude"):
+    def test_every_agent_keeps_its_type_and_receives_model_and_effort(self):
+        for agent_type in (None, "general-purpose", "security-reviewer"):
             with self.subTest(agent_type=agent_type):
                 call = {"prompt": "Synthetic task", "description": "Example", "subagent_type": agent_type}
                 with patch("agent_hook.route.route", return_value=("opus", "high", {})) as pick:
                     output = json.loads(self.invoke({"tool_name": "Agent", "cwd": "/workspace", "tool_input": call}))
                 pick.assert_called_once_with("Synthetic task", "/workspace", "agent")
                 self.assertEqual(output, {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {
-                    **call, "model": "opus", "subagent_type": "routed-opus-high"}}})
+                    **call, "model": "opus", "effort": "high"}}})
 
-    def test_specialized_agent_preserves_type_and_inputs(self):
+    def test_selection_replaces_caller_model_and_effort_and_keeps_other_inputs(self):
         call = {"prompt": "Synthetic task", "subagent_type": "security-reviewer", "model": "sonnet",
-                "description": "Example", "run_in_background": True}
+                "effort": "low", "description": "Example", "run_in_background": True}
         with patch("agent_hook.route.route", return_value=("opus", "xhigh", {})):
             output = json.loads(self.invoke({"tool_name": "Agent", "tool_input": call}))
-        self.assertEqual(output["hookSpecificOutput"]["updatedInput"], {**call, "model": "opus"})
+        self.assertEqual(output["hookSpecificOutput"]["updatedInput"], {**call, "model": "opus", "effort": "xhigh"})
 
     def test_non_agent_and_empty_prompts_emit_nothing(self):
         for event in ({}, {"tool_name": "Read", "tool_input": {"prompt": "Synthetic task"}},
@@ -132,7 +131,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             output = json.loads(result.stdout)
             self.assertEqual(output["hookSpecificOutput"]["updatedInput"], {
-                **call, "model": "sonnet", "subagent_type": "routed-sonnet-xhigh"})
+                **call, "model": "sonnet", "effort": "xhigh"})
             entry = json.loads((root / "artifacts" / "beta_log.jsonl").read_text())
         self.assertIn("ScoreError", entry["error"])
         self.assertEqual([attempt["provider"] for attempt in entry["attempts"]], ["respan", "typesafe", "openrouter"])

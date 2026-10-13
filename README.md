@@ -105,11 +105,11 @@ Requests use an 8-second socket timeout per attempt with no retries for the same
 provider/model pair. The shell example gives the whole hook 30 seconds. Invalid configuration
 also produces the static default; use `check` to catch it before starting a session.
 
-For the Claude hook, generic agents (`general-purpose`, `claude`, or no type) become
-`routed-<model>-<effort>` agents, whose definitions carry the effort. Specialized
-agents retain their type and instructions and receive only the selected model.
-Non-Agent calls and empty prompts pass through. Provider and log-write failures
-do not block spawning.
+The Claude hook sets the Agent call's `model` and `effort` fields and keeps every
+other input, including the agent type and its instructions. Per-call `effort` needs
+Claude Code 2.1.292 or later; forks ignore both fields, and `CLAUDE_CODE_EFFORT_LEVEL`
+overrides the routed effort. Non-Agent calls and empty prompts pass through.
+Provider and log-write failures do not block spawning.
 
 The scoring model chooses the execution model; these are separate settings.
 The shared probability format does not establish equal calibration across providers.
@@ -124,12 +124,11 @@ shell configuration. It uses the exported path so hooks work from other projects
 beta() (
   : "${EFFORT_ROUTER_DIR:?Set EFFORT_ROUTER_DIR to the cloned repository}"
   export EFFORT_ROUTER_DIR
-  unset CLAUDE_CODE_SUBAGENT_MODEL_FORCE
+  unset CLAUDE_CODE_SUBAGENT_MODEL_FORCE CLAUDE_CODE_EFFORT_LEVEL
   python3 "$EFFORT_ROUTER_DIR/model_provider.py" check || exit
-  routed_agents=$(python3 "$EFFORT_ROUTER_DIR/route.py" agents) || exit
   claude --model opus \
     --settings '{"hooks":{"PreToolUse":[{"matcher":"Agent","hooks":[{"type":"command","command":"python3 \"$EFFORT_ROUTER_DIR/agent_hook.py\"","timeout":30}]}]}}' \
-    --agents "$routed_agents" "$@"
+    "$@"
 )
 ```
 
@@ -161,8 +160,7 @@ python3 route.py --target codex --json "Explain what a Python list is"
 ```
 
 `--json` emits only the model/effort object, including when scoring fails and the
-target's fallback is used. It also works with `--target claude`. The `agents`
-command generates Claude definitions only.
+target's fallback is used. It also works with `--target claude`.
 
 Launch one routed Codex task:
 
@@ -205,7 +203,6 @@ for model and effort settings.
 
 ```sh
 python3 -m unittest discover -s tests -v        # Offline tests; no API keys needed
-python3 route.py agents                        # Print all 16 agent definitions
 printf '%s\n' '{"tool_name":"Read","tool_input":{}}' | python3 agent_hook.py
 ```
 
@@ -231,7 +228,7 @@ credentials and logs out of commits and use synthetic prompts for integration te
 | File | Purpose |
 |---|---|
 | `model_provider.py` | Provider configuration, credentials, API adapters, and fallback |
-| `route.py` | Behavior definitions, model/effort selection, agent definitions, and logs |
+| `route.py` | Behavior definitions, model/effort selection, and logs |
 | `agent_hook.py` | Claude Code `PreToolUse` JSON interface |
 | `codex_run.py` | Launch a whole Codex task with the selected model and effort |
 | `tests/test_model_provider.py`, `tests/test_route.py`, `tests/test_codex.py` | Offline provider, routing, hook, and launcher regression tests |

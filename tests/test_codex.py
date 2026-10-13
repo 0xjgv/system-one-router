@@ -86,27 +86,12 @@ class CodexRouteTests(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue()), {"model": "gpt-6-astra", "effort": "high"})
         self.assertEqual(len(output.getvalue().splitlines()), 1)
 
-    def test_cli_claude_human_output_and_agents_remain_default(self):
+    def test_cli_claude_human_output_remains_default(self):
         output = io.StringIO()
         with patch("route.route", return_value=("opus", "high", {"floored": []})), \
                 contextlib.redirect_stdout(output):
             self.assertEqual(route.main(["Synthetic task"]), 0)
         self.assertEqual(output.getvalue(), "opus high\n")
-        output = io.StringIO()
-        with patch("route.model_provider.scores") as score, contextlib.redirect_stdout(output):
-            self.assertEqual(route.main(["agents"]), 0)
-        self.assertEqual(json.loads(output.getvalue()), route.agents())
-        self.assertEqual(len(json.loads(output.getvalue())), 16)
-        score.assert_not_called()
-
-    def test_codex_agents_command_reports_an_error_without_scoring(self):
-        errors = io.StringIO()
-        with patch("route.model_provider.scores") as score, contextlib.redirect_stderr(errors):
-            with self.assertRaises(SystemExit) as error:
-                route.main(["--target", "codex", "agents"])
-        self.assertNotEqual(error.exception.code, 0)
-        self.assertIn("claude", errors.getvalue().lower())
-        score.assert_not_called()
 
 
 class CodexLauncherTests(unittest.TestCase):

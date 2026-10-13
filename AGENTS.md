@@ -4,7 +4,7 @@
 
 This is a Python 3.9, standard-library-only router for Claude Code subagents.
 
-- `route.py`: Respan scoring, model/effort selection, logging, and agent definitions.
+- `route.py`: Respan scoring, model/effort selection, and logging.
 - `agent_hook.py`: `PreToolUse` hook that reads JSON from stdin and emits updated Agent input.
 - `README.md`: setup, routing behavior, and experiment history.
 - `artifacts/beta_log.jsonl`: generated routing records; ignored by Git.
@@ -15,7 +15,6 @@ Offline `unittest` tests live in `tests/`; there are no package or asset directo
 
 No build step or dependency installation is required.
 
-- `python3 route.py agents`: print the 16 `routed-<model>-<effort>` definitions without calling Respan.
 - `python3 route.py "Fix the flaky login test"`: score a prompt, print the selection, and append a log record. This sends the prompt to Respan when configured.
 - `printf '%s\n' '{"tool_name":"Read","tool_input":{}}' | python3 agent_hook.py`: check pass-through behavior; expect successful exit with no output.
 - `python3 -m py_compile route.py agent_hook.py`: check syntax.
@@ -30,7 +29,7 @@ Use four-space indentation, `snake_case` functions and variables, and uppercase 
 
 No coverage threshold exists. For routing changes, add focused standard-library `unittest` tests named `tests/test_*.py`; run them with `python3 -m unittest discover -s tests`.
 
-Mock scoring and redirect logs to temporary paths. Cover low-score and API-failure fallbacks, generic-agent rewriting, specialized-agent type preservation, and empty/non-Agent pass-through. Validate emitted JSON through the hook entry point without sending private prompts to Respan.
+Mock scoring and redirect logs to temporary paths. Cover low-score and API-failure fallbacks, model and effort on every Agent call with its type preserved, and empty/non-Agent pass-through. Validate emitted JSON through the hook entry point without sending private prompts to Respan.
 
 ## Commit & Pull Request Guidelines
 

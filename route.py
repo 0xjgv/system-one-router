@@ -2,7 +2,6 @@
 
     python3 route.py "<prompt>"   print the pick for one prompt and log it
     python3 route.py --target codex --json "<prompt>"   print a Codex model/effort pair
-    python3 route.py agents       --agents JSON with one routed-<model>-<effort> agent per pair
 
 One scoring call evaluates every model and effort option; each group takes the highest probability.
 Scoring failures and winners under FLOOR use the target's fallback. Standard library only; Python 3.9.
@@ -46,8 +45,6 @@ EFFORTS = {
     "medium": "The task request is clear and moderately sized; a direct approach with one quick check is enough.",
     "low": "The task request is simple enough that a fast, direct answer is fine and extra checking adds nothing.",
 }
-GENERIC_AGENT = ("You are a general-purpose agent. Do the task in the prompt fully: search, read, edit and run "
-                 "what it needs. Finish with a short report of what you did and found, with file paths.")
 
 
 def behavior_definitions(models: dict[str, str]) -> list[dict]:
@@ -89,24 +86,12 @@ def route(text: str, cwd: str, kind: str, target: str = "claude") -> tuple[str, 
     return model, effort, entry
 
 
-def agents() -> dict:
-    """One generic agent per model x effort, since an Agent call can set the model but not the effort."""
-    return {f"routed-{m}-{e}": {
-        "description": f"General-purpose agent on {m} at {e} effort. Chosen by the beta router hook; do not pick it yourself.",
-        "prompt": GENERIC_AGENT, "model": m, "effort": e} for m in MODELS for e in EFFORTS}
-
-
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", choices=TARGETS, default="claude", help="Execution target (default: claude)")
     parser.add_argument("--json", action="store_true", help="Print a model/effort JSON object")
-    parser.add_argument("prompt", help="Task prompt, or 'agents' to print Claude agent definitions")
+    parser.add_argument("prompt", help="Task prompt")
     args = parser.parse_args(argv)
-    if args.prompt == "agents":
-        if args.target != "claude":
-            parser.error("'agents' is only available for the claude target")
-        print(json.dumps(agents()))
-        return 0
     if not args.prompt.strip():
         parser.error("prompt must not be empty")
     model, effort, entry = route(args.prompt, os.getcwd(), "manual", args.target)
