@@ -9,7 +9,7 @@ This is a Python 3.9, standard-library-only router for Claude Code subagents.
 - `README.md`: setup, routing behavior, and experiment history.
 - `artifacts/beta_log.jsonl`: generated routing records; ignored by Git.
 
-There are no package, asset, or test directories. Keep changes within the existing modules unless a concrete need warrants expansion.
+Offline `unittest` tests live in `tests/`; there are no package or asset directories. Keep changes within the existing modules unless a concrete need warrants expansion.
 
 ## Build, Test, and Development Commands
 
@@ -28,7 +28,7 @@ Use four-space indentation, `snake_case` functions and variables, and uppercase 
 
 ## Testing Guidelines
 
-No automated test suite or coverage threshold exists. For routing changes, add focused standard-library `unittest` tests named `test_*.py`; run them with `python3 -m unittest discover`.
+No coverage threshold exists. For routing changes, add focused standard-library `unittest` tests named `tests/test_*.py`; run them with `python3 -m unittest discover -s tests`.
 
 Mock scoring and redirect logs to temporary paths. Cover low-score and API-failure fallbacks, generic-agent rewriting, specialized-agent type preservation, and empty/non-Agent pass-through. Validate emitted JSON through the hook entry point without sending private prompts to Respan.
 

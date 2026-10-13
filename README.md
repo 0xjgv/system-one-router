@@ -204,7 +204,7 @@ for model and effort settings.
 ## Tests and logs
 
 ```sh
-python3 -m unittest discover -v                 # Offline tests; no API keys needed
+python3 -m unittest discover -s tests -v        # Offline tests; no API keys needed
 python3 route.py agents                        # Print all 16 agent definitions
 printf '%s\n' '{"tool_name":"Read","tool_input":{}}' | python3 agent_hook.py
 ```
@@ -234,4 +234,4 @@ credentials and logs out of commits and use synthetic prompts for integration te
 | `route.py` | Behavior definitions, model/effort selection, agent definitions, and logs |
 | `agent_hook.py` | Claude Code `PreToolUse` JSON interface |
 | `codex_run.py` | Launch a whole Codex task with the selected model and effort |
-| `test_model_provider.py`, `test_route.py`, `test_codex.py` | Offline provider, routing, hook, and launcher regression tests |
+| `tests/test_model_provider.py`, `tests/test_route.py`, `tests/test_codex.py` | Offline provider, routing, hook, and launcher regression tests |

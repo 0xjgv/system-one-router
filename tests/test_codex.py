@@ -162,7 +162,7 @@ class CodexLauncherTests(unittest.TestCase):
             environment.pop(name, None)
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            source = Path(__file__).resolve().parent
+            source = Path(__file__).resolve().parent.parent
             for name in ("route.py", "model_provider.py", "codex_run.py"):
                 shutil.copyfile(source / name, root / name)
             executable = root / "codex"
