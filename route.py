@@ -23,10 +23,10 @@ LOG = ROOT / "artifacts" / "beta_log.jsonl"
 FALLBACK = ("sonnet", "xhigh")
 FLOOR = 0.3  # a winning p_present under this means no option fit
 MODELS = {  # Fable is wise, Opus smart, Sonnet focused, Haiku quick.
-    "fable": "The task request calls for wisdom: weighing trade-offs, choosing between several defensible approaches, or working out what is really being asked before acting.",
-    "opus": "The task request calls for strong technical skill: hard engineering across several parts of a system, subtle debugging, or careful verification of correctness.",
-    "sonnet": "The task request is a focused, well-defined job: one clear goal, a bounded scope, and an obvious way to tell when it is done.",
-    "haiku": "The task request is trivial or mechanical: a tiny edit, a narrow lookup, or a short direct answer that needs little context and no design judgment.",
+    "fable": "The main difficulty of the task request is judgment, not execution: it asks to decide, compare options, weigh trade-offs, or work out what is really wanted, and following instructions alone would not produce the right answer.",
+    "opus": "The task request is hard engineering with an unknown cause or solution: it spans several components, needs deep investigation, and a competent engineer could easily get it wrong.",
+    "sonnet": "The task request is standard engineering with a known approach: the steps follow from the request, and a competent engineer would finish it correctly on the first attempt, even if it takes several steps.",
+    "haiku": "The task request is trivial: a single lookup, a one-line edit, or a short factual answer that takes one or two steps and no judgment.",
 }
 TARGETS = {
     "claude": {"models": MODELS, "fallback": FALLBACK},
