@@ -95,14 +95,25 @@ class HookTests(unittest.TestCase):
                     output = json.loads(self.invoke({"tool_name": "Agent", "cwd": "/workspace", "tool_input": call}))
                 pick.assert_called_once_with("Synthetic task", "/workspace", "agent")
                 self.assertEqual(output, {"systemMessage": "routed-opus-high", "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse", "updatedInput": {**call, "model": "opus", "effort": "high"}}})
+                    "hookEventName": "PreToolUse", "updatedInput": {
+                        **call, "model": "opus", "effort": "high", "description": "opus-high · Example"}}})
 
     def test_selection_replaces_caller_model_and_effort_and_keeps_other_inputs(self):
         call = {"prompt": "Synthetic task", "subagent_type": "security-reviewer", "model": "sonnet",
                 "effort": "low", "description": "Example", "run_in_background": True}
         with patch("agent_hook.route.route", return_value=("opus", "xhigh", {})):
             output = json.loads(self.invoke({"tool_name": "Agent", "tool_input": call}))
-        self.assertEqual(output["hookSpecificOutput"]["updatedInput"], {**call, "model": "opus", "effort": "xhigh"})
+        self.assertEqual(output["hookSpecificOutput"]["updatedInput"], {
+            **call, "model": "opus", "effort": "xhigh", "description": "opus-xhigh · Example"})
+
+    def test_description_gets_route_label_prefix_with_or_without_incoming_description(self):
+        for incoming, expected in (("Fix login", "opus-high · Fix login"), ("", "opus-high"), (None, "opus-high")):
+            call = {"prompt": "Synthetic task"}
+            if incoming is not None:
+                call["description"] = incoming
+            with self.subTest(description=incoming), patch("agent_hook.route.route", return_value=("opus", "high", {})):
+                output = json.loads(self.invoke({"tool_name": "Agent", "tool_input": call}))
+            self.assertEqual(output["hookSpecificOutput"]["updatedInput"]["description"], expected)
 
     def test_non_agent_and_empty_prompts_emit_nothing(self):
         for event in ({}, {"tool_name": "Read", "tool_input": {"prompt": "Synthetic task"}},
@@ -131,7 +142,7 @@ class HookTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             output = json.loads(result.stdout)
             self.assertEqual(output["hookSpecificOutput"]["updatedInput"], {
-                **call, "model": "sonnet", "effort": "xhigh"})
+                **call, "model": "sonnet", "effort": "xhigh", "description": "sonnet-xhigh · Example"})
             entry = json.loads((root / "artifacts" / "beta_log.jsonl").read_text())
         self.assertIn("ScoreError", entry["error"])
         self.assertEqual([attempt["provider"] for attempt in entry["attempts"]], ["respan", "typesafe", "openrouter"])
