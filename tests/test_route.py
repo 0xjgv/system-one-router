@@ -94,8 +94,8 @@ class HookTests(unittest.TestCase):
                 with patch("agent_hook.route.route", return_value=("opus", "high", {})) as pick:
                     output = json.loads(self.invoke({"tool_name": "Agent", "cwd": "/workspace", "tool_input": call}))
                 pick.assert_called_once_with("Synthetic task", "/workspace", "agent")
-                self.assertEqual(output, {"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {
-                    **call, "model": "opus", "effort": "high"}}})
+                self.assertEqual(output, {"systemMessage": "routed-opus-high", "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse", "updatedInput": {**call, "model": "opus", "effort": "high"}}})
 
     def test_selection_replaces_caller_model_and_effort_and_keeps_other_inputs(self):
         call = {"prompt": "Synthetic task", "subagent_type": "security-reviewer", "model": "sonnet",
